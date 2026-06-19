@@ -1,6 +1,3 @@
-<!-- DRAFT — đọc lại, thêm trải nghiệm/ý kiến cá nhân và chỉnh giọng trước khi nộp.
-     Rubric chấm theo lập luận & tradeoff, không theo độ dài. Hiện ~950 từ. -->
-
 # Bonus Design — Flywheel dữ liệu cho Agent CSKH tiếng Việt
 
 ## Bài toán & ràng buộc
