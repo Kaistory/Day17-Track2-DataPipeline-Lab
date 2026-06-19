@@ -1,0 +1,1298 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Financial Market Data Pipeline</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;600;700&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg:      #070a0d;
+    --bg2:     #0d1117;
+    --bg3:     #131920;
+    --border:  #1e2530;
+    --text:    #dde2ea;
+    --text2:   #8892a4;
+    --text3:   #49566a;
+    --gold:    #f5c842;
+    --green:   #22d3a5;
+    --red:     #f05252;
+    --blue:    #4fa8e8;
+    --silver:  #94a3b8;
+    --mono:    'JetBrains Mono', monospace;
+    --sans:    'Inter', sans-serif;
+  }
+
+  html, body {
+    width: 100%; height: 100%;
+    background: #000;
+    overflow: hidden;
+    font-family: var(--sans);
+    color: var(--text);
+  }
+
+  #scaler {
+    position: fixed;
+    top: 0; left: 0;
+    width: 1920px; height: 1080px;
+    transform-origin: top left;
+  }
+
+  .slide {
+    position: absolute;
+    inset: 0;
+    width: 1920px; height: 1080px;
+    background: var(--bg);
+    display: none;
+    overflow: hidden;
+  }
+  .slide.active { display: flex; }
+
+  #nav {
+    position: fixed;
+    bottom: 28px; right: 36px;
+    display: flex; align-items: center; gap: 16px;
+    z-index: 999;
+  }
+  #nav button {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    color: var(--text2);
+    font-family: var(--mono);
+    font-size: 13px;
+    padding: 8px 18px;
+    cursor: pointer;
+    transition: all 0.15s;
+    letter-spacing: 0.05em;
+  }
+  #nav button:hover { border-color: var(--gold); color: var(--gold); }
+  #counter {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--text3);
+    letter-spacing: 0.15em;
+    min-width: 60px;
+    text-align: center;
+  }
+  #progress {
+    position: fixed;
+    top: 0; left: 0;
+    height: 2px;
+    background: var(--gold);
+    transition: width 0.3s ease;
+    z-index: 999;
+    opacity: 0.9;
+  }
+
+  .label {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: var(--text3);
+  }
+
+  /* dot grid */
+  .dotgrid {
+    position: absolute;
+    inset: 0;
+    background-image: radial-gradient(circle, rgba(255,255,255,0.06) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+  }
+
+  /* ══ candlestick decoration ══ */
+  .candle-deco {
+    position: absolute;
+    bottom: 0;
+    right: 0;
+    display: flex;
+    align-items: flex-end;
+    gap: 6px;
+    padding: 0 60px 0 0;
+    height: 100%;
+    pointer-events: none;
+    opacity: 0.07;
+  }
+  .candle {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 0;
+  }
+  .candle-wick { width: 1px; background: currentColor; }
+  .candle-body { width: 20px; }
+
+  /* ══════════════════════════════
+     SLIDE 1 — COVER
+  ══════════════════════════════ */
+  #s1 {
+    flex-direction: column;
+    justify-content: center;
+    padding: 0 160px;
+    position: relative;
+  }
+  #s1 .eyebrow {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.3em;
+    color: var(--gold);
+    margin-bottom: 44px;
+  }
+  #s1 h1 {
+    font-family: var(--mono);
+    font-size: 80px;
+    font-weight: 700;
+    line-height: 1.0;
+    letter-spacing: -0.02em;
+    max-width: 1000px;
+    margin-bottom: 16px;
+  }
+  #s1 h1 .g { color: var(--gold); }
+  #s1 .tagline {
+    font-family: var(--mono);
+    font-size: 20px;
+    color: var(--text2);
+    margin-bottom: 64px;
+    font-weight: 300;
+  }
+  .badge-row { display: flex; gap: 0; }
+  .badge {
+    padding: 12px 28px;
+    font-family: var(--mono);
+    font-size: 12px;
+    letter-spacing: 0.15em;
+    border: 1px solid var(--border);
+    color: var(--text3);
+  }
+  .badge strong { display: block; font-size: 20px; color: var(--text2); margin-bottom: 4px; letter-spacing: 0.05em; }
+  .badge.accent { border-color: var(--gold); }
+  .badge.accent strong { color: var(--gold); }
+
+  /* ticker tape */
+  #s1 .ticker {
+    position: absolute;
+    right: 100px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 460px;
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    overflow: hidden;
+  }
+  #s1 .ticker-header {
+    background: var(--bg3);
+    padding: 10px 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid var(--border);
+  }
+  #s1 .ticker-title {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.2em;
+    color: var(--text3);
+  }
+  #s1 .ticker-live {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--green);
+    letter-spacing: 0.15em;
+  }
+  #s1 .ticker-live::before {
+    content: '';
+    display: inline-block;
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--green);
+    animation: blink 1.2s infinite;
+  }
+  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.2} }
+  .ticker-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 14px 20px;
+    border-bottom: 1px solid rgba(255,255,255,0.04);
+  }
+  .ticker-row .sym {
+    font-family: var(--mono);
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text);
+    letter-spacing: 0.05em;
+    min-width: 80px;
+  }
+  .ticker-row .price {
+    font-family: var(--mono);
+    font-size: 14px;
+    color: var(--text2);
+    min-width: 120px;
+    text-align: right;
+  }
+  .ticker-row .change {
+    font-family: var(--mono);
+    font-size: 13px;
+    min-width: 80px;
+    text-align: right;
+  }
+  .change.up   { color: var(--green); }
+  .change.down { color: var(--red); }
+
+  /* ══════════════════════════════
+     SLIDE 2 — TỔNG QUAN
+  ══════════════════════════════ */
+  #s2 { flex-direction: column; padding: 80px 120px; }
+  .slide-header { margin-bottom: 56px; }
+  .slide-header h2 {
+    font-family: var(--mono);
+    font-size: 40px;
+    font-weight: 600;
+    margin-top: 12px;
+  }
+  .slide-header h2 .g { color: var(--gold); }
+
+  .flow-wrap {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 24px;
+  }
+  .flow-row { display: flex; align-items: center; justify-content: center; }
+  .pf-node {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    padding: 24px 28px;
+    min-width: 196px;
+    text-align: center;
+    flex-shrink: 0;
+  }
+  .pf-node .pf-icon {
+    font-family: var(--mono);
+    font-size: 13px;
+    letter-spacing: 0.1em;
+    margin-bottom: 8px;
+  }
+  .pf-node .pf-name {
+    font-family: var(--mono);
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text);
+    margin-bottom: 5px;
+  }
+  .pf-node .pf-tech {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--text3);
+    line-height: 1.6;
+  }
+  .pf-node.hl { border-color: var(--gold); box-shadow: 0 0 20px rgba(245,200,66,0.08); }
+  .pf-arrow {
+    padding: 0 8px;
+    flex-shrink: 0;
+  }
+  .arrow-line {
+    width: 44px;
+    height: 1px;
+    background: var(--border);
+    position: relative;
+  }
+  .arrow-line::after {
+    content: '';
+    position: absolute;
+    right: -1px; top: -4px;
+    border-left: 8px solid var(--border);
+    border-top: 4px solid transparent;
+    border-bottom: 4px solid transparent;
+  }
+  .arrow-lbl {
+    font-family: var(--mono);
+    font-size: 9px;
+    color: var(--text3);
+    letter-spacing: 0.15em;
+    margin-top: 6px;
+    text-align: center;
+  }
+  .pf-note-row {
+    display: flex;
+    gap: 16px;
+    justify-content: center;
+  }
+  .pf-note {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    padding: 16px 24px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    min-width: 280px;
+  }
+  .pf-note .note-key {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.2em;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+  .pf-note .note-val {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--text3);
+  }
+
+  /* ══════════════════════════════
+     SLIDE 3,4,5 — DIRECTIONS
+  ══════════════════════════════ */
+  .dir-slide { flex-direction: column; padding: 80px 120px; }
+  .dir-slide .slide-header { margin-bottom: 48px; }
+  .dir-slide h2 {
+    font-family: var(--mono);
+    font-size: 40px;
+    font-weight: 600;
+    margin-top: 12px;
+  }
+  .dir-slide h2 .g { color: var(--gold); }
+  .dir-content {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 48px;
+    flex: 1;
+    align-items: start;
+  }
+  .dir-desc {
+    font-size: 19px;
+    line-height: 1.75;
+    color: var(--text2);
+    font-weight: 300;
+  }
+  .dir-desc strong { color: var(--text); font-weight: 500; }
+  .dir-right { display: flex; flex-direction: column; gap: 16px; }
+
+  .usecase-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 16px;
+    padding: 14px 18px;
+    background: var(--bg2);
+    border-left: 2px solid var(--gold);
+  }
+  .usecase-item .uc-num {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--gold);
+    letter-spacing: 0.15em;
+    flex-shrink: 0;
+    margin-top: 2px;
+  }
+  .usecase-item .uc-text {
+    font-size: 14px;
+    color: var(--text2);
+    line-height: 1.5;
+  }
+
+  .demo-box {
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    padding: 20px 24px;
+  }
+  .demo-box .demo-label {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.25em;
+    color: var(--gold);
+    margin-bottom: 10px;
+  }
+  .demo-box .demo-text {
+    font-size: 14px;
+    color: var(--text2);
+    line-height: 1.6;
+    font-style: italic;
+  }
+
+  .tech-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 8px;
+  }
+  .tech-pill {
+    font-family: var(--mono);
+    font-size: 11px;
+    padding: 4px 12px;
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    color: var(--text2);
+    letter-spacing: 0.05em;
+  }
+
+  /* ══════════════════════════════
+     SLIDE 6 — ARCHITECTURE
+  ══════════════════════════════ */
+  #s6 { flex-direction: column; padding: 80px 120px; }
+  #s6 .slide-header { margin-bottom: 44px; }
+  #s6 h2 {
+    font-family: var(--mono);
+    font-size: 36px;
+    font-weight: 600;
+    margin-top: 10px;
+  }
+  .arch-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px;
+    flex: 1;
+  }
+  .arch-layer {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    padding: 20px 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .arch-layer .lt {
+    font-family: var(--mono);
+    font-size: 9px;
+    letter-spacing: 0.25em;
+    text-transform: uppercase;
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 4px;
+  }
+  .lt.g { color: var(--gold); border-color: rgba(245,200,66,0.25); }
+  .lt.green { color: var(--green); border-color: rgba(34,211,165,0.25); }
+  .lt.b { color: var(--blue); border-color: rgba(79,168,232,0.25); }
+  .lt.r { color: var(--red); border-color: rgba(240,82,82,0.25); }
+  .ai-name {
+    font-family: var(--mono);
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text);
+  }
+  .ai-desc {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--text3);
+    line-height: 1.5;
+  }
+  .arch-item { margin-bottom: 8px; }
+
+  /* ══════════════════════════════
+     SLIDE 7 — RISKS & FEATURES
+  ══════════════════════════════ */
+  #s7 { flex-direction: column; padding: 80px 120px; }
+  #s7 .slide-header { margin-bottom: 44px; }
+  #s7 h2 {
+    font-family: var(--mono);
+    font-size: 36px;
+    font-weight: 600;
+    margin-top: 10px;
+  }
+  #s7 .main-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 48px;
+    flex: 1;
+  }
+  .risk-table { border-collapse: collapse; width: 100%; }
+  .risk-table th {
+    font-family: var(--mono);
+    font-size: 9px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--text3);
+    text-align: left;
+    padding: 8px 14px;
+    border-bottom: 1px solid var(--border);
+  }
+  .risk-table td {
+    font-family: var(--mono);
+    font-size: 12px;
+    padding: 12px 14px;
+    border-bottom: 1px solid rgba(255,255,255,0.03);
+    vertical-align: middle;
+    color: var(--text2);
+  }
+  .risk-table td:first-child { color: var(--text); font-weight: 600; }
+  .dot {
+    display: inline-block;
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    margin-right: 5px;
+  }
+  .dot.h { background: var(--red); }
+  .dot.m { background: var(--gold); }
+  .dot.l { background: var(--green); }
+
+  .timeline-col { display: flex; flex-direction: column; gap: 14px; }
+  .tw {
+    display: flex;
+    gap: 16px;
+    align-items: flex-start;
+  }
+  .tw-week {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.15em;
+    white-space: nowrap;
+    min-width: 70px;
+    padding-top: 1px;
+  }
+  .tw-week.w1 { color: var(--gold); }
+  .tw-week.w2 { color: var(--green); }
+  .tw-week.w3 { color: var(--blue); }
+  .tw-week.w4 { color: var(--silver); }
+  .tw-week.w5 { color: var(--red); }
+  .tw-bar {
+    width: 1px;
+    min-height: 64px;
+    flex-shrink: 0;
+    opacity: 0.4;
+    margin: 0 2px;
+  }
+  .tw-bar.w1 { background: var(--gold); }
+  .tw-bar.w2 { background: var(--green); }
+  .tw-bar.w3 { background: var(--blue); }
+  .tw-bar.w4 { background: var(--silver); }
+  .tw-bar.w5 { background: var(--red); }
+  .tw-items { display: flex; flex-direction: column; gap: 5px; }
+  .tw-item {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--text2);
+    line-height: 1.5;
+  }
+  .tw-item::before {
+    content: '';
+    display: inline-block;
+    width: 3px; height: 3px;
+    background: var(--border);
+    border-radius: 50%;
+    margin-right: 10px;
+    vertical-align: middle;
+  }
+
+  /* ══════════════════════════════
+     SLIDE 8 — NEXT STEPS
+  ══════════════════════════════ */
+  #s8 {
+    flex-direction: column;
+    justify-content: center;
+    padding: 0 120px;
+  }
+  #s8 .slide-header { margin-bottom: 64px; }
+  #s8 h2 {
+    font-family: var(--mono);
+    font-size: 50px;
+    font-weight: 600;
+    margin-top: 12px;
+  }
+  .next-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 28px;
+  }
+  .next-card {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    padding: 32px 28px;
+    position: relative;
+    overflow: hidden;
+  }
+  .next-card::after {
+    content: attr(data-n);
+    position: absolute;
+    top: -16px; right: 20px;
+    font-family: var(--mono);
+    font-size: 88px;
+    font-weight: 700;
+    color: rgba(255,255,255,0.03);
+    line-height: 1;
+  }
+  .nc-lbl {
+    font-family: var(--mono);
+    font-size: 9px;
+    letter-spacing: 0.25em;
+    text-transform: uppercase;
+    margin-bottom: 14px;
+  }
+  .nc-title {
+    font-family: var(--mono);
+    font-size: 18px;
+    font-weight: 600;
+    color: var(--text);
+    margin-bottom: 12px;
+    line-height: 1.3;
+  }
+  .nc-desc {
+    font-size: 14px;
+    color: var(--text3);
+    line-height: 1.65;
+  }
+  .next-card.c1 { border-top: 2px solid var(--gold); }
+  .next-card.c2 { border-top: 2px solid var(--green); }
+  .next-card.c3 { border-top: 2px solid var(--blue); }
+  .next-card.c1 .nc-lbl { color: var(--gold); }
+  .next-card.c2 .nc-lbl { color: var(--green); }
+  .next-card.c3 .nc-lbl { color: var(--blue); }
+
+  .bottom-note {
+    margin-top: 52px;
+    font-family: var(--mono);
+    font-size: 13px;
+    color: var(--text3);
+    letter-spacing: 0.1em;
+    text-align: center;
+  }
+  .bottom-note span { color: var(--gold); }
+
+  /* difficulty tag */
+  .diff-tag {
+    display: inline-block;
+    font-family: var(--mono);
+    font-size: 9px;
+    letter-spacing: 0.15em;
+    padding: 2px 8px;
+    border: 1px solid currentColor;
+    vertical-align: middle;
+  }
+  .diff-tag.h { color: var(--red); }
+  .diff-tag.m { color: var(--gold); }
+  .diff-tag.l { color: var(--green); }
+</style>
+</head>
+<body>
+
+<div id="progress"></div>
+
+<div id="scaler">
+
+  <!-- ══ SLIDE 1: COVER ══ -->
+  <section class="slide active" id="s1">
+    <div class="dotgrid"></div>
+
+    <!-- decorative candle chart -->
+    <div class="candle-deco">
+      <div class="candle" style="color:var(--red)">
+        <div class="candle-wick" style="height:60px"></div>
+        <div class="candle-body" style="height:120px;background:var(--red)"></div>
+        <div class="candle-wick" style="height:30px"></div>
+      </div>
+      <div class="candle" style="color:var(--green)">
+        <div class="candle-wick" style="height:40px"></div>
+        <div class="candle-body" style="height:200px;background:var(--green)"></div>
+        <div class="candle-wick" style="height:50px"></div>
+      </div>
+      <div class="candle" style="color:var(--red)">
+        <div class="candle-wick" style="height:80px"></div>
+        <div class="candle-body" style="height:160px;background:var(--red)"></div>
+        <div class="candle-wick" style="height:20px"></div>
+      </div>
+      <div class="candle" style="color:var(--green)">
+        <div class="candle-wick" style="height:30px"></div>
+        <div class="candle-body" style="height:300px;background:var(--green)"></div>
+        <div class="candle-wick" style="height:60px"></div>
+      </div>
+      <div class="candle" style="color:var(--green)">
+        <div class="candle-wick" style="height:20px"></div>
+        <div class="candle-body" style="height:440px;background:var(--green)"></div>
+        <div class="candle-wick" style="height:80px"></div>
+      </div>
+      <div class="candle" style="color:var(--red)">
+        <div class="candle-wick" style="height:50px"></div>
+        <div class="candle-body" style="height:180px;background:var(--red)"></div>
+        <div class="candle-wick" style="height:40px"></div>
+      </div>
+      <div class="candle" style="color:var(--green)">
+        <div class="candle-wick" style="height:30px"></div>
+        <div class="candle-body" style="height:560px;background:var(--green)"></div>
+        <div class="candle-wick" style="height:70px"></div>
+      </div>
+      <div class="candle" style="color:var(--gold)">
+        <div class="candle-wick" style="height:100px"></div>
+        <div class="candle-body" style="height:680px;background:var(--gold)"></div>
+        <div class="candle-wick" style="height:40px"></div>
+      </div>
+    </div>
+
+    <div style="position:relative;z-index:2">
+      <p class="eyebrow">DATA PIPELINE ENGINEERING · TRACK 2 · DAY 17</p>
+      <h1>Financial<br>Market <span class="g">Data</span><br>Pipeline</h1>
+      <p class="tagline">Real-time Market Intelligence & Risk Analysis</p>
+      <div class="badge-row">
+        <div class="badge accent"><strong>3–5 tuần</strong>TIMELINE</div>
+        <div class="badge"><strong>Cao</strong>ĐỘ KHÓ</div>
+        <div class="badge"><strong>Rất cao</strong>GIÁ TRỊ PORTFOLIO</div>
+      </div>
+    </div>
+
+    <div class="ticker" style="position:absolute;right:120px;top:50%;transform:translateY(-50%);z-index:2">
+      <div class="ticker-header">
+        <span class="ticker-title">MARKET FEED · REAL-TIME</span>
+        <span class="ticker-live">LIVE</span>
+      </div>
+      <div class="ticker-row">
+        <span class="sym">BTC/USDT</span>
+        <span class="price">67,842.50</span>
+        <span class="change up">+2.34%</span>
+      </div>
+      <div class="ticker-row">
+        <span class="sym">ETH/USDT</span>
+        <span class="price">3,521.18</span>
+        <span class="change up">+1.87%</span>
+      </div>
+      <div class="ticker-row">
+        <span class="sym">SOL/USDT</span>
+        <span class="price">158.72</span>
+        <span class="change down">−0.94%</span>
+      </div>
+      <div class="ticker-row">
+        <span class="sym">AAPL</span>
+        <span class="price">213.45</span>
+        <span class="change up">+0.61%</span>
+      </div>
+      <div class="ticker-row">
+        <span class="sym">NVDA</span>
+        <span class="price">894.20</span>
+        <span class="change down">−1.22%</span>
+      </div>
+      <div class="ticker-row" style="border-bottom:none">
+        <span class="sym">EUR/USD</span>
+        <span class="price">1.0847</span>
+        <span class="change up">+0.08%</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ══ SLIDE 2: TỔNG QUAN ══ -->
+  <section class="slide" id="s2">
+    <div class="dotgrid"></div>
+    <div class="slide-header">
+      <p class="label">KIẾN TRÚC TỔNG THỂ</p>
+      <h2>Pipeline từ Market Feed → Insight</h2>
+    </div>
+    <div class="flow-wrap">
+      <div class="flow-row">
+        <div class="pf-node">
+          <div class="pf-icon" style="color:var(--gold)">[SRC]</div>
+          <div class="pf-name">DATA SOURCES</div>
+          <div class="pf-tech">Binance WS<br>Yahoo Finance<br>Alpha Vantage</div>
+        </div>
+        <div class="pf-arrow">
+          <div class="arrow-line"></div>
+          <div class="arrow-lbl">websocket</div>
+        </div>
+        <div class="pf-node hl">
+          <div class="pf-icon" style="color:var(--gold)">[MQ]</div>
+          <div class="pf-name">MESSAGE QUEUE</div>
+          <div class="pf-tech">Apache Kafka<br>market_ticks topic</div>
+        </div>
+        <div class="pf-arrow">
+          <div class="arrow-line"></div>
+          <div class="arrow-lbl">consume</div>
+        </div>
+        <div class="pf-node">
+          <div class="pf-icon" style="color:var(--green)">[PROC]</div>
+          <div class="pf-name">STREAM PROCESSOR</div>
+          <div class="pf-tech">Apache Flink<br>window aggregation</div>
+        </div>
+        <div class="pf-arrow">
+          <div class="arrow-line"></div>
+          <div class="arrow-lbl">write</div>
+        </div>
+        <div class="pf-node">
+          <div class="pf-icon" style="color:var(--blue)">[DB]</div>
+          <div class="pf-name">STORAGE</div>
+          <div class="pf-tech">TimescaleDB<br>ClickHouse<br>Redis cache</div>
+        </div>
+        <div class="pf-arrow">
+          <div class="arrow-line"></div>
+          <div class="arrow-lbl">query</div>
+        </div>
+        <div class="pf-node">
+          <div class="pf-icon" style="color:var(--red)">[VIZ]</div>
+          <div class="pf-name">DASHBOARD</div>
+          <div class="pf-tech">Grafana · TradingView<br>Alert · Backtest</div>
+        </div>
+      </div>
+      <div class="pf-note-row">
+        <div class="pf-note">
+          <span class="note-key" style="color:var(--gold)">ORCH</span>
+          <div style="width:1px;height:24px;background:var(--border);margin:0 4px"></div>
+          <span class="note-val">Apache Airflow · schedule batch jobs · retry on failure · SLA alerts</span>
+        </div>
+        <div class="pf-note">
+          <span class="note-key" style="color:var(--green)">XFORM</span>
+          <div style="width:1px;height:24px;background:var(--border);margin:0 4px"></div>
+          <span class="note-val">dbt · OHLCV aggregates · risk metrics · signal materialization</span>
+        </div>
+        <div class="pf-note">
+          <span class="note-key" style="color:var(--blue)">CLOUD</span>
+          <div style="width:1px;height:24px;background:var(--border);margin:0 4px"></div>
+          <span class="note-val">AWS Kinesis / GCP Pub-Sub · S3 Data Lake · Redshift Warehouse</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ══ SLIDE 3: HƯỚNG 1 ══ -->
+  <section class="slide dir-slide" id="s3">
+    <div class="dotgrid"></div>
+    <div class="slide-header">
+      <p class="label">HƯỚNG TRIỂN KHAI · 01 / 03</p>
+      <h2>Portfolio Risk <span class="g">Dashboard</span></h2>
+    </div>
+    <div class="dir-content">
+      <div>
+        <p class="dir-desc">
+          Stream giá tài sản <strong>real-time từ Binance/Yahoo Finance</strong>, tính toán risk metrics (VaR, Sharpe, correlation) theo cửa sổ 5 phút, hiển thị trên Grafana dashboard.
+        </p>
+        <div style="margin-top:36px">
+          <p class="label" style="margin-bottom:14px">TECH STACK</p>
+          <div class="tech-row">
+            <span class="tech-pill">Kafka</span>
+            <span class="tech-pill">Apache Flink</span>
+            <span class="tech-pill">TimescaleDB</span>
+            <span class="tech-pill">Grafana</span>
+            <span class="tech-pill">Redis</span>
+            <span class="tech-pill">dbt</span>
+            <span class="tech-pill">Airflow</span>
+          </div>
+        </div>
+        <div style="margin-top:28px;display:grid;grid-template-columns:1fr 1fr;gap:12px">
+          <div style="background:var(--bg2);border:1px solid var(--border);padding:14px 16px">
+            <div style="font-family:var(--mono);font-size:22px;font-weight:700;color:var(--gold)">VaR 95%</div>
+            <div style="font-family:var(--mono);font-size:10px;color:var(--text3);margin-top:4px">Value at Risk metric</div>
+          </div>
+          <div style="background:var(--bg2);border:1px solid var(--border);padding:14px 16px">
+            <div style="font-family:var(--mono);font-size:22px;font-weight:700;color:var(--green)">Sharpe</div>
+            <div style="font-family:var(--mono);font-size:10px;color:var(--text3);margin-top:4px">Risk-adjusted return</div>
+          </div>
+        </div>
+      </div>
+      <div class="dir-right">
+        <div style="display:flex;flex-direction:column;gap:10px">
+          <div class="usecase-item">
+            <span class="uc-num">01</span>
+            <span class="uc-text">Real-time OHLCV aggregation theo window 1m / 5m / 1h</span>
+          </div>
+          <div class="usecase-item">
+            <span class="uc-num">02</span>
+            <span class="uc-text">Tính VaR, Sharpe Ratio, Max Drawdown tự động theo portfolio</span>
+          </div>
+          <div class="usecase-item">
+            <span class="uc-num">03</span>
+            <span class="uc-text">Correlation matrix giữa các tài sản cập nhật liên tục</span>
+          </div>
+          <div class="usecase-item">
+            <span class="uc-num">04</span>
+            <span class="uc-text">Alert khi risk metric vượt ngưỡng định sẵn (margin call simulation)</span>
+          </div>
+        </div>
+        <div class="demo-box">
+          <p class="demo-label">Demo ấn tượng</p>
+          <p class="demo-text">Grafana dashboard live: candlestick chart + risk gauges cập nhật real-time. Thấy ngay impact khi thêm / bớt 1 tài sản vào portfolio.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ══ SLIDE 4: HƯỚNG 2 ══ -->
+  <section class="slide dir-slide" id="s4">
+    <div class="dotgrid"></div>
+    <div class="slide-header">
+      <p class="label">HƯỚNG TRIỂN KHAI · 02 / 03</p>
+      <h2>Anomaly Detection <span class="g">System</span></h2>
+    </div>
+    <div class="dir-content">
+      <div>
+        <p class="dir-desc">
+          Phát hiện <strong>giao dịch bất thường</strong> (pump & dump, wash trading, fat-finger) theo thời gian thực. Dùng statistical model + ML trên stream data.
+        </p>
+        <div style="margin-top:36px">
+          <p class="label" style="margin-bottom:14px">TECH STACK</p>
+          <div class="tech-row">
+            <span class="tech-pill">Kafka</span>
+            <span class="tech-pill">Apache Flink</span>
+            <span class="tech-pill">Isolation Forest</span>
+            <span class="tech-pill">MLflow</span>
+            <span class="tech-pill">ClickHouse</span>
+            <span class="tech-pill">Grafana</span>
+            <span class="tech-pill">Prefect</span>
+          </div>
+        </div>
+        <div style="margin-top:28px;background:var(--bg2);border:1px solid var(--border);padding:16px 20px">
+          <p class="label" style="color:var(--red);margin-bottom:10px">ĐIỂM KHÓ NHẤT</p>
+          <p style="font-size:13px;color:var(--text3);line-height:1.6;font-family:var(--mono)">Phân biệt "giao dịch bất thường thật" vs "biến động thị trường bình thường" — đòi hỏi feature engineering tinh tế và threshold tuning liên tục.</p>
+        </div>
+      </div>
+      <div class="dir-right">
+        <div style="display:flex;flex-direction:column;gap:10px">
+          <div class="usecase-item">
+            <span class="uc-num">01</span>
+            <span class="uc-text">Detect volume spike bất thường: so sánh với baseline 30-day rolling avg</span>
+          </div>
+          <div class="usecase-item">
+            <span class="uc-num">02</span>
+            <span class="uc-text">Price velocity alert: giá tăng/giảm quá X% trong dưới 60 giây</span>
+          </div>
+          <div class="usecase-item">
+            <span class="uc-num">03</span>
+            <span class="uc-text">Order book imbalance detection: buy/sell pressure ratio</span>
+          </div>
+          <div class="usecase-item">
+            <span class="uc-num">04</span>
+            <span class="uc-text">ML scoring: Isolation Forest real-time inference trên Flink</span>
+          </div>
+        </div>
+        <div class="demo-box">
+          <p class="demo-label">Demo ấn tượng</p>
+          <p class="demo-text">Replay historical data của một sự kiện thao túng giá thật → pipeline detect được anomaly với timestamp và confidence score. Compelling case study.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ══ SLIDE 5: HƯỚNG 3 ══ -->
+  <section class="slide dir-slide" id="s5">
+    <div class="dotgrid"></div>
+    <div class="slide-header">
+      <p class="label">HƯỚNG TRIỂN KHAI · 03 / 03</p>
+      <h2>Backtesting <span class="g">Signal Pipeline</span></h2>
+    </div>
+    <div class="dir-content">
+      <div>
+        <p class="dir-desc">
+          Pipeline thu thập historical OHLCV, tính toán <strong>technical indicators</strong> (RSI, MACD, Bollinger), backtest trading signals và so sánh performance các strategies.
+        </p>
+        <div style="margin-top:36px">
+          <p class="label" style="margin-bottom:14px">TECH STACK</p>
+          <div class="tech-row">
+            <span class="tech-pill">Kafka</span>
+            <span class="tech-pill">Apache Spark</span>
+            <span class="tech-pill">AWS S3</span>
+            <span class="tech-pill">Redshift</span>
+            <span class="tech-pill">dbt</span>
+            <span class="tech-pill">Airflow</span>
+            <span class="tech-pill">Plotly Dash</span>
+          </div>
+        </div>
+        <div style="margin-top:28px;display:grid;grid-template-columns:repeat(3,1fr);gap:10px">
+          <div style="background:var(--bg2);border:1px solid var(--border);padding:12px 14px;text-align:center">
+            <div style="font-family:var(--mono);font-size:14px;font-weight:600;color:var(--gold)">RSI</div>
+            <div style="font-family:var(--mono);font-size:9px;color:var(--text3);margin-top:3px">Momentum</div>
+          </div>
+          <div style="background:var(--bg2);border:1px solid var(--border);padding:12px 14px;text-align:center">
+            <div style="font-family:var(--mono);font-size:14px;font-weight:600;color:var(--green)">MACD</div>
+            <div style="font-family:var(--mono);font-size:9px;color:var(--text3);margin-top:3px">Trend</div>
+          </div>
+          <div style="background:var(--bg2);border:1px solid var(--border);padding:12px 14px;text-align:center">
+            <div style="font-family:var(--mono);font-size:14px;font-weight:600;color:var(--blue)">BB</div>
+            <div style="font-family:var(--mono);font-size:9px;color:var(--text3);margin-top:3px">Volatility</div>
+          </div>
+        </div>
+      </div>
+      <div class="dir-right">
+        <div style="display:flex;flex-direction:column;gap:10px">
+          <div class="usecase-item">
+            <span class="uc-num">01</span>
+            <span class="uc-text">ETL historical data từ exchange vào Data Lake (S3 / Parquet)</span>
+          </div>
+          <div class="usecase-item">
+            <span class="uc-num">02</span>
+            <span class="uc-text">dbt transforms: tính indicators, tạo feature table cho signal</span>
+          </div>
+          <div class="usecase-item">
+            <span class="uc-num">03</span>
+            <span class="uc-text">Backtest engine: simulate trades theo signal, tính P&L, drawdown</span>
+          </div>
+          <div class="usecase-item">
+            <span class="uc-num">04</span>
+            <span class="uc-text">Strategy comparison dashboard: so sánh 5+ strategies cùng lúc</span>
+          </div>
+        </div>
+        <div class="demo-box">
+          <p class="demo-label">Demo ấn tượng</p>
+          <p class="demo-text">Dashboard so sánh performance của RSI strategy vs Buy&Hold vs MACD trên BTC 2 năm — equity curve, drawdown chart, win rate rõ ràng và đẹp.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ══ SLIDE 6: ARCHITECTURE ══ -->
+  <section class="slide" id="s6">
+    <div class="dotgrid"></div>
+    <div class="slide-header">
+      <p class="label">KIẾN TRÚC CHI TIẾT · HƯỚNG 1</p>
+      <h2>Portfolio Risk Dashboard — Deep Dive</h2>
+    </div>
+    <div class="arch-grid">
+      <div class="arch-layer">
+        <div class="lt g">INGESTION</div>
+        <div class="arch-item">
+          <div class="ai-name">Binance WS API</div>
+          <div class="ai-desc">@bookTicker · @trade<br>stream per symbol</div>
+        </div>
+        <div class="arch-item">
+          <div class="ai-name">Yahoo Finance REST</div>
+          <div class="ai-desc">fallback · equity data<br>yfinance Python lib</div>
+        </div>
+        <div class="arch-item">
+          <div class="ai-name">Kafka Producer</div>
+          <div class="ai-desc">topic: market_ticks<br>topic: order_book</div>
+        </div>
+        <div class="arch-item">
+          <div class="ai-name">Schema Registry</div>
+          <div class="ai-desc">Avro schema validation<br>Confluent compatible</div>
+        </div>
+      </div>
+      <div class="arch-layer">
+        <div class="lt green">PROCESSING</div>
+        <div class="arch-item">
+          <div class="ai-name">Flink Job: OHLCV</div>
+          <div class="ai-desc">tumbling window 1m/5m<br>min/max/open/close/vol</div>
+        </div>
+        <div class="arch-item">
+          <div class="ai-name">Flink Job: Risk</div>
+          <div class="ai-desc">rolling 30d stddev<br>VaR 95% / 99% calc</div>
+        </div>
+        <div class="arch-item">
+          <div class="ai-name">Flink CEP</div>
+          <div class="ai-desc">complex event pattern<br>price velocity detect</div>
+        </div>
+        <div class="arch-item">
+          <div class="ai-name">Redis Cache</div>
+          <div class="ai-desc">latest tick · 1min OHLCV<br>TTL 5s per symbol</div>
+        </div>
+      </div>
+      <div class="arch-layer">
+        <div class="lt b">STORAGE</div>
+        <div class="arch-item">
+          <div class="ai-name">TimescaleDB</div>
+          <div class="ai-desc">time-series hypertable<br>continuous aggregate</div>
+        </div>
+        <div class="arch-item">
+          <div class="ai-name">ClickHouse</div>
+          <div class="ai-desc">OLAP queries · backtest<br>MergeTree engine</div>
+        </div>
+        <div class="arch-item">
+          <div class="ai-name">dbt models</div>
+          <div class="ai-desc">risk_daily · returns_mtx<br>portfolio_metrics</div>
+        </div>
+        <div class="arch-item">
+          <div class="ai-name">S3 Data Lake</div>
+          <div class="ai-desc">Parquet partitioned<br>raw ticks archive</div>
+        </div>
+      </div>
+      <div class="arch-layer">
+        <div class="lt r">SERVING</div>
+        <div class="arch-item">
+          <div class="ai-name">Grafana</div>
+          <div class="ai-desc">candlestick · gauge<br>time-series panels</div>
+        </div>
+        <div class="arch-item">
+          <div class="ai-name">Plotly Dash</div>
+          <div class="ai-desc">custom risk charts<br>correlation heatmap</div>
+        </div>
+        <div class="arch-item">
+          <div class="ai-name">Telegram / Slack</div>
+          <div class="ai-desc">risk threshold alerts<br>daily P&L summary</div>
+        </div>
+        <div class="arch-item">
+          <div class="ai-name">Airflow DAG</div>
+          <div class="ai-desc">EOD report · rebalance<br>@ 17:00 market close</div>
+        </div>
+      </div>
+    </div>
+    <div style="margin-top:20px;padding:14px 24px;background:var(--bg2);border:1px solid var(--border);display:flex;align-items:center;gap:16px">
+      <span style="font-family:var(--mono);font-size:10px;color:var(--gold);letter-spacing:0.2em">DEPLOY</span>
+      <span style="width:1px;height:16px;background:var(--border)"></span>
+      <span style="font-family:var(--mono);font-size:12px;color:var(--text2)">Docker Compose local · hoặc AWS EKS + MSK (managed Kafka) cho production-grade demo</span>
+    </div>
+  </section>
+
+  <!-- ══ SLIDE 7: RISKS & TIMELINE ══ -->
+  <section class="slide" id="s7">
+    <div class="dotgrid"></div>
+    <div class="slide-header">
+      <p class="label">RISKS & TIMELINE</p>
+      <h2>Thách thức & Lộ trình 5 tuần</h2>
+    </div>
+    <div class="main-grid">
+      <div>
+        <p class="label" style="margin-bottom:16px">THÁCH THỨC KỸ THUẬT</p>
+        <table class="risk-table">
+          <thead>
+            <tr>
+              <th>Thách thức</th>
+              <th>Mô tả</th>
+              <th>Mức độ</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Data quality</td>
+              <td>Giá bị thiếu / delay / sai từ exchange</td>
+              <td><span class="dot h"></span><span class="diff-tag h">HIGH</span></td>
+            </tr>
+            <tr>
+              <td>Stream join</td>
+              <td>Join 2 streams khác tốc độ (tick vs orderbook)</td>
+              <td><span class="dot h"></span><span class="diff-tag h">HIGH</span></td>
+            </tr>
+            <tr>
+              <td>Late data</td>
+              <td>Xử lý event đến muộn trong watermark</td>
+              <td><span class="dot m"></span><span class="diff-tag m">MID</span></td>
+            </tr>
+            <tr>
+              <td>API rate limit</td>
+              <td>Binance / Yahoo giới hạn request/phút</td>
+              <td><span class="dot m"></span><span class="diff-tag m">MID</span></td>
+            </tr>
+            <tr>
+              <td>Math accuracy</td>
+              <td>Floating point khi tính financial metrics</td>
+              <td><span class="dot l"></span><span class="diff-tag l">LOW</span></td>
+            </tr>
+            <tr>
+              <td>Backpressure</td>
+              <td>Kafka consumer lag khi market volatile</td>
+              <td><span class="dot m"></span><span class="diff-tag m">MID</span></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <div>
+        <p class="label" style="margin-bottom:16px">TIMELINE 5 TUẦN</p>
+        <div class="timeline-col">
+          <div class="tw">
+            <span class="tw-week w1">TUẦN 1</span>
+            <div class="tw-bar w1"></div>
+            <div class="tw-items">
+              <div class="tw-item">Setup Kafka + Binance WebSocket producer</div>
+              <div class="tw-item">Consume & store raw ticks vào TimescaleDB</div>
+            </div>
+          </div>
+          <div class="tw">
+            <span class="tw-week w2">TUẦN 2</span>
+            <div class="tw-bar w2"></div>
+            <div class="tw-items">
+              <div class="tw-item">Flink job: OHLCV aggregation theo tumbling window</div>
+              <div class="tw-item">dbt models: risk metrics (VaR, Sharpe, drawdown)</div>
+            </div>
+          </div>
+          <div class="tw">
+            <span class="tw-week w3">TUẦN 3</span>
+            <div class="tw-bar w3"></div>
+            <div class="tw-items">
+              <div class="tw-item">Dựng Grafana dashboard: candlestick + risk gauges</div>
+              <div class="tw-item">Setup Airflow: daily EOD report DAG</div>
+            </div>
+          </div>
+          <div class="tw">
+            <span class="tw-week w4">TUẦN 4</span>
+            <div class="tw-bar w4"></div>
+            <div class="tw-items">
+              <div class="tw-item">Thêm anomaly detection (volume spike, price velocity)</div>
+              <div class="tw-item">Telegram alert integration</div>
+            </div>
+          </div>
+          <div class="tw">
+            <span class="tw-week w5">TUẦN 5</span>
+            <div class="tw-bar w5"></div>
+            <div class="tw-items">
+              <div class="tw-item">Docker Compose + README + live demo recording</div>
+              <div class="tw-item">Optional: cloud deploy (AWS EKS + MSK)</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ══ SLIDE 8: NEXT STEPS ══ -->
+  <section class="slide" id="s8">
+    <div class="dotgrid"></div>
+    <div class="slide-header">
+      <p class="label">KẾT LUẬN</p>
+      <h2>Bước tiếp theo</h2>
+    </div>
+    <div class="next-grid">
+      <div class="next-card c1" data-n="1">
+        <p class="nc-lbl">ĐIỂM KHỞI ĐẦU</p>
+        <p class="nc-title">Bắt đầu với Hướng 1: Risk Dashboard</p>
+        <p class="nc-desc">Pipeline cơ bản nhất, kết quả visible ngay (Grafana chart), dùng mock data trước khi connect real exchange API.</p>
+      </div>
+      <div class="next-card c2" data-n="2">
+        <p class="nc-lbl">GIÁ TRỊ KỸ THUẬT</p>
+        <p class="nc-title">Kỹ năng được thể hiện</p>
+        <p class="nc-desc">Stream processing, time-series DB, financial math, window aggregation, alert system — tất cả kỹ năng Data Engineer high-level mà công ty FinTech cần.</p>
+      </div>
+      <div class="next-card c3" data-n="3">
+        <p class="nc-lbl">NÂNG CẤP DỄ</p>
+        <p class="nc-title">Thêm ML layer sau tuần 3</p>
+        <p class="nc-desc">Khi pipeline cơ bản ổn định, thêm anomaly detection hoặc backtesting engine → project trở thành end-to-end ML pipeline rất ấn tượng.</p>
+      </div>
+    </div>
+    <p class="bottom-note">Stack gợi ý: <span>Kafka → Flink → TimescaleDB → ClickHouse → Grafana → Airflow → dbt</span></p>
+  </section>
+
+</div><!-- #scaler -->
+
+<div id="nav">
+  <button id="btn-prev">← PREV</button>
+  <span id="counter">1 / 8</span>
+  <button id="btn-next">NEXT →</button>
+</div>
+
+<script>
+  const slides = document.querySelectorAll('.slide');
+  const total  = slides.length;
+  let   cur    = 0;
+
+  function go(n) {
+    slides[cur].classList.remove('active');
+    cur = (n + total) % total;
+    slides[cur].classList.add('active');
+    document.getElementById('counter').textContent = (cur + 1) + ' / ' + total;
+    document.getElementById('progress').style.width = ((cur + 1) / total * 100) + '%';
+    localStorage.setItem('fm-slide-pos', cur);
+  }
+
+  document.getElementById('btn-next').addEventListener('click', () => go(cur + 1));
+  document.getElementById('btn-prev').addEventListener('click', () => go(cur - 1));
+  document.addEventListener('keydown', e => {
+    if (e.key === 'ArrowRight' || e.key === 'ArrowDown' || e.key === ' ') go(cur + 1);
+    if (e.key === 'ArrowLeft'  || e.key === 'ArrowUp')                     go(cur - 1);
+  });
+
+  const saved = parseInt(localStorage.getItem('fm-slide-pos') || '0');
+  if (saved > 0 && saved < total) go(saved);
+  else {
+    document.getElementById('counter').textContent = '1 / ' + total;
+    document.getElementById('progress').style.width = (1 / total * 100) + '%';
+  }
+
+  function scale() {
+    const s = document.getElementById('scaler');
+    const r = Math.min(window.innerWidth / 1920, window.innerHeight / 1080);
+    s.style.transform = 'scale(' + r + ')';
+    s.style.left = ((window.innerWidth  - 1920 * r) / 2) + 'px';
+    s.style.top  = ((window.innerHeight - 1080 * r) / 2) + 'px';
+  }
+  window.addEventListener('resize', scale);
+  scale();
+</script>
+</body>
+</html>
