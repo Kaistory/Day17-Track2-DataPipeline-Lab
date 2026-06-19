@@ -14,7 +14,7 @@ docs ─▶ chunk→embed (vector)   |   docs ─▶ triples→graph (knowledge 
 
 Mọi thứ chạy **zero-key, đa nền tảng** trên DuckDB + Python thuần. **Đường lite**
 chỉ cần `pip install`. Docker và dbt là tùy chọn.
-
+ 
 Lab này trả thẳng vào bài giảng:
 - seed orders có **~30% trùng lặp + 3 dòng hỏng** → dedup ở Silver, cách ly
   (quarantine) dòng xấu để model không bao giờ thấy chúng (§2/§9);
